@@ -66,3 +66,4 @@ jobs:
       - name: Stop Emulator
         if: always()
         run: adb emu kill
+
