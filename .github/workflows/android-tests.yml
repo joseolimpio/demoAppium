@@ -38,15 +38,11 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
-          target: default
+          target: google_apis
           arch: x86_64
           profile: pixel_3a
           disable-animations: true
           emulator-options: "-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim"
-          script: |
-            adb wait-for-device
-            adb shell input keyevent 82 # Desbloquear a tela
-            adb devices
 
       - name: Wait for Emulator to be Ready
         run: |
@@ -62,6 +58,11 @@ jobs:
             exit 1
           fi
           echo "Emulator is ready!"
+
+      - name: Keep ADB Connection Alive
+        run: |
+          nohup adb logcat > /dev/null 2>&1 &
+          echo "ADB logcat process started in the background."
 
       - name: Run WebdriverIO Tests
         run: npx wdio wdio.conf.js
