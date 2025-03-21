@@ -23,7 +23,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: '23'
 
       - name: Install Dependencies
         run: |
@@ -43,6 +43,7 @@ jobs:
           profile: pixel_3a
           disable-animations: true
           emulator-options: "-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim"
+          script: adb devices
 
       - name: Wait for Emulator to be Ready
         run: |
