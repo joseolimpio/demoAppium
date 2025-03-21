@@ -23,7 +23,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '23'
+          node-version: '18'
 
       - name: Install Dependencies
         run: |
@@ -43,7 +43,25 @@ jobs:
           profile: pixel_3a
           disable-animations: true
           emulator-options: "-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim"
-          script: adb devices
+          script: |
+            adb wait-for-device
+            adb shell input keyevent 82 # Desbloquear a tela
+            adb devices
+
+      - name: Wait for Emulator to be Ready
+        run: |
+          max_attempts=30
+          attempt=0
+          while [[ $(adb shell getprop sys.boot_completed 2>/dev/null) != "1" && $attempt -lt $max_attempts ]]; do
+            echo "Waiting for emulator to be ready... Attempt: $attempt"
+            sleep 5
+            ((attempt++))
+          done
+          if [[ $(adb shell getprop sys.boot_completed 2>/dev/null) != "1" ]]; then
+            echo "Emulator failed to start in time"
+            exit 1
+          fi
+          echo "Emulator is ready!"
 
       - name: Run WebdriverIO Tests
         run: npx wdio wdio.conf.js
