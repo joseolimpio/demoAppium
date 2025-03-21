@@ -45,7 +45,7 @@ jobs:
           emulator-options: "-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim"
           script: adb devices
 
-      - name: Wait for Emulator to be Ready
+      - name: Wait for Emulator to be Ready and Run Tests
         run: |
           max_attempts=30
           attempt=0
@@ -59,14 +59,10 @@ jobs:
             exit 1
           fi
           echo "Emulator is ready!"
-
-      - name: Keep ADB Connection Alive
-        run: |
-          nohup adb logcat > /dev/null 2>&1 &
-          echo "ADB logcat process started in the background."
-
-      - name: Run WebdriverIO Tests
-        run: npx wdio wdio.conf.js
+          
+          # Run the tests after emulator is ready
+          echo "Running WebdriverIO Tests..."
+          npx wdio wdio.conf.js
 
       - name: Stop Emulator
         if: always()
