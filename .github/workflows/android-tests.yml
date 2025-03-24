@@ -34,41 +34,55 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Start Android Emulator (Background)
-        run: |
-          nohup emulator -avd pixel_3a -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim > emulator.log 2>&1 &
-          echo "Emulator started in background."
+      - name: Start Android Emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_3a
+          disable-animations: true
+          emulator-options: "-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim"
+          script: adb devices &
 
       - name: Wait for Emulator Boot Confirmation
         run: |
           echo "Waiting for emulator to fully boot..."
-          max_attempts=30
+          max_attempts=60
+          attempt=0
+          
+          while [[ -z $(adb devices | grep emulator) && $attempt -lt $max_attempts ]]; do
+            echo "Waiting for emulator to appear in adb devices... Attempt: $attempt"
+            sleep 5
+            ((attempt++))
+          done
+
+          if [[ -z $(adb devices | grep emulator) ]]; then
+            echo "Emulator is not available in adb devices. Exiting..."
+            exit 1
+          fi
+
+          echo "Emulator detected. Waiting for boot completion..."
+          
           attempt=0
           while [[ $(adb shell getprop sys.boot_completed 2>/dev/null) != "1" && $attempt -lt $max_attempts ]]; do
             echo "Waiting... Attempt: $attempt"
             sleep 5
             ((attempt++))
           done
+
           if [[ $(adb shell getprop sys.boot_completed 2>/dev/null) != "1" ]]; then
             echo "Emulator failed to start in time"
             exit 1
           fi
+
           echo "Emulator booted successfully!"
-
-          # Garantindo que o emulador está 100% pronto antes de interagir
           sleep 10
-
-          # Desbloquear a tela
-          adb shell input keyevent 82
-
-          # Desativar animações
-          adb shell settings put global window_animation_scale 0.0 || true
-          adb shell settings put global transition_animation_scale 0.0 || true
-          adb shell settings put global animator_duration_scale 0.0 || true
+          adb shell input keyevent 82 &
 
       - name: Run WebdriverIO Tests
-        run: npx wdio wdio.conf.js
+        run: npx wdio wdio.conf.js &
 
       - name: Stop Emulator
         if: always()
-        run: adb emu kill || true
+        run: adb emu kill
