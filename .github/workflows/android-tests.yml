@@ -34,26 +34,39 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Start Android Emulator and Monitor Boot
-        run: |
-          # Inicia o emulador em background
-          nohup emulator -avd pixel_3a -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim &
-
-          # Aguarda a mensagem "Emulator booted."
-          echo "Waiting for emulator to fully boot..."
-          while true; do
-            BOOTED=$(adb shell getprop sys.boot_completed 2>/dev/null)
-            if [[ "$BOOTED" == "1" ]]; then
-              echo "Emulator booted."
-              break
+      - name: Start Android Emulator and Run Tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_3a
+          disable-animations: true
+          emulator-options: "-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim"
+          script: |
+            # Start the emulator and wait for it to boot
+            adb devices
+            max_attempts=30
+            attempt=0
+            while [[ $(adb shell getprop sys.boot_completed 2>/dev/null) != "1" && $attempt -lt $max_attempts ]]; do
+              echo "Waiting for emulator to be ready... Attempt: $attempt"
+              sleep 5
+              ((attempt++))
+            done
+            if [[ $(adb shell getprop sys.boot_completed 2>/dev/null) != "1" ]]; then
+              echo "Emulator failed to start in time"
+              exit 1
             fi
-            sleep 5
-          done
+            echo "Emulator is ready!"
 
-      - name: Run WebdriverIO Tests
-        run: npx wdio wdio.conf.js &
+            # Adding a slight delay to ensure all services are up
+            echo "Waiting a bit more for full emulator readiness..."
+            sleep 10
+
+            # Run WebdriverIO Tests after emulator is ready
+            echo "Running WebdriverIO Tests..."
+            npx wdio wdio.conf.js
 
       - name: Stop Emulator
         if: always()
         run: adb emu kill
-        
