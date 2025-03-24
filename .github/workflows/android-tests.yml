@@ -34,39 +34,41 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Start Android Emulator and Run Tests
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 30
-          target: google_apis
-          arch: x86_64
-          profile: pixel_3a
-          disable-animations: true
-          emulator-options: "-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim"
-          script: |
-            # Start the emulator and wait for it to boot
-            adb devices
-            max_attempts=30
-            attempt=0
-            while [[ $(adb shell getprop sys.boot_completed 2>/dev/null) != "1" && $attempt -lt $max_attempts ]]; do
-              echo "Waiting for emulator to be ready... Attempt: $attempt"
-              sleep 5
-              ((attempt++))
-            done
-            if [[ $(adb shell getprop sys.boot_completed 2>/dev/null) != "1" ]]; then
-              echo "Emulator failed to start in time"
-              exit 1
-            fi
-            echo "Emulator is ready!"
+      - name: Start Android Emulator (Background)
+        run: |
+          nohup emulator -avd pixel_3a -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim > emulator.log 2>&1 &
+          echo "Emulator started in background."
 
-            # Adding a slight delay to ensure all services are up
-            echo "Waiting a bit more for full emulator readiness..."
-            sleep 10
+      - name: Wait for Emulator Boot Confirmation
+        run: |
+          echo "Waiting for emulator to fully boot..."
+          max_attempts=30
+          attempt=0
+          while [[ $(adb shell getprop sys.boot_completed 2>/dev/null) != "1" && $attempt -lt $max_attempts ]]; do
+            echo "Waiting... Attempt: $attempt"
+            sleep 5
+            ((attempt++))
+          done
+          if [[ $(adb shell getprop sys.boot_completed 2>/dev/null) != "1" ]]; then
+            echo "Emulator failed to start in time"
+            exit 1
+          fi
+          echo "Emulator booted successfully!"
 
-            # Run WebdriverIO Tests after emulator is ready
-            echo "Running WebdriverIO Tests..."
-            npx wdio wdio.conf.js
+          # Garantindo que o emulador está 100% pronto antes de interagir
+          sleep 10
+
+          # Desbloquear a tela
+          adb shell input keyevent 82
+
+          # Desativar animações
+          adb shell settings put global window_animation_scale 0.0 || true
+          adb shell settings put global transition_animation_scale 0.0 || true
+          adb shell settings put global animator_duration_scale 0.0 || true
+
+      - name: Run WebdriverIO Tests
+        run: npx wdio wdio.conf.js
 
       - name: Stop Emulator
         if: always()
-        run: adb emu kill
+        run: adb emu kill || true
